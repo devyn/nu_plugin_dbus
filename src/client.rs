@@ -1,13 +1,13 @@
-use dbus::{blocking::LocalConnection, channel::{Channel, BusType}};
+use dbus::{channel::{Channel, BusType}, Message};
 use nu_plugin::LabeledError;
-use nu_protocol::Spanned;
+use nu_protocol::{Spanned, Value};
 
 use crate::config::{DbusClientConfig, DbusBusChoice};
 
 /// Executes D-Bus actions on a connection, handling nushell types
 pub struct DbusClient {
     config: DbusClientConfig,
-    conn: LocalConnection,
+    conn: Channel,
 }
 
 impl DbusClient {
@@ -31,7 +31,7 @@ impl DbusClient {
         })?;
         Ok(DbusClient {
             config,
-            conn: LocalConnection::from(channel)
+            conn: channel
         })
     }
 
@@ -42,9 +42,16 @@ impl DbusClient {
         object: &Spanned<String>,
         interface: &Spanned<String>,
         method: &Spanned<String>,
-    ) -> Result<(), LabeledError> {
-        // TODO convert & return response
+    ) -> Result<Value, LabeledError> {
         // TODO accept arguments
+        macro_rules! error {
+            ($label:expr) => (LabeledError {
+                label: $label,
+                msg: "while calling a D-Bus method".into(),
+                span: Some(self.config.span)
+            })
+        }
+
         // Validate inputs before sending to the dbus lib so we don't panic
         macro_rules! validate_with {
             ($type:ty, $spanned:expr) => (<$type>::new(&$spanned.item).map_err(|msg| {
@@ -60,19 +67,18 @@ impl DbusClient {
         let valid_interface = validate_with!(dbus::strings::Interface, interface)?;
         let valid_method = validate_with!(dbus::strings::Member, method)?;
 
-        // Send method call
-        let proxy = self.conn.with_proxy(
+        // Construct the method call message
+        let message = Message::new_method_call(
             valid_dest,
             valid_object,
-            self.config.timeout.item
-        );
-        let () = proxy.method_call(valid_interface, valid_method, ()).map_err(|err| {
-            LabeledError {
-                label: err.to_string(),
-                msg: "while calling a D-Bus method".into(),
-                span: Some(self.config.span),
-            }
-        })?;
-        Ok(())
+            valid_interface,
+            valid_method,
+        ).map_err(|err| error!(err))?;
+
+        // Send it on the channel and get the response
+        let resp = self.conn.send_with_reply_and_block(message, self.config.timeout.item)
+            .map_err(|err| error!(err.to_string()))?;
+
+        Ok(crate::convert::from_message(&resp)?)
     }
 }

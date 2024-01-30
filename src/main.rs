@@ -3,6 +3,7 @@ use nu_protocol::{PluginSignature, Value, SyntaxShape, PluginExample};
 
 mod config;
 mod client;
+mod convert;
 
 use config::*;
 use client::*;
@@ -102,8 +103,6 @@ impl NuPluginDbus {
             &call.req(0)?,
             &call.req(1)?,
             &call.req(2)?,
-        )?;
-        // TODO handle response
-        Ok(Value::nothing(call.head))
+        )
     }
 }
