@@ -6,5 +6,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+dbus = "0.9.7"
 nu-plugin = "0.89.0"
 nu-protocol = { version = "0.89.0", features = ["plugin"] }
