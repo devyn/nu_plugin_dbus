@@ -141,6 +141,16 @@ pub fn to_message_item(value: &Value, expected_type: Option<&DbusType>)
         (Value::String { val, .. }, Some(DbusType::Double)) =>
             Ok(MessageItem::Double(try_convert!(f64::from_str(&val[..])))),
 
+        // Binary
+        (Value::Binary { val, .. }, Some(r#type @ DbusType::Array(content_type)))
+            if matches!(**content_type, DbusType::Byte) =>
+        {
+            // FIXME: this is likely pretty inefficient for a bunch of bytes
+            let sig = Signature::from(r#type.stringify());
+            let items = val.iter().cloned().map(MessageItem::Byte).collect::<Vec<_>>();
+            Ok(MessageItem::Array(MessageItemArray::new(items, sig).unwrap()))
+        },
+
         // List/array
         (Value::List { vals, .. }, Some(r#type @ DbusType::Array(content_type))) => {
             let sig = Signature::from(r#type.stringify());
