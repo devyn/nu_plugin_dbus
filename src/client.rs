@@ -2,7 +2,7 @@ use dbus::{channel::{Channel, BusType}, Message};
 use nu_plugin::LabeledError;
 use nu_protocol::{Spanned, Value};
 
-use crate::config::{DbusClientConfig, DbusBusChoice};
+use crate::{config::{DbusClientConfig, DbusBusChoice}, dbus_type::DbusType, convert::to_message_item};
 
 /// Executes D-Bus actions on a connection, handling nushell types
 pub struct DbusClient {
@@ -42,8 +42,9 @@ impl DbusClient {
         object: &Spanned<String>,
         interface: &Spanned<String>,
         method: &Spanned<String>,
-    ) -> Result<Value, LabeledError> {
-        // TODO accept arguments
+        signature: Option<&Spanned<String>>,
+        args: &[Value],
+    ) -> Result<Vec<Value>, LabeledError> {
         macro_rules! error {
             ($label:expr) => (LabeledError {
                 label: $label,
@@ -67,13 +68,34 @@ impl DbusClient {
         let valid_interface = validate_with!(dbus::strings::Interface, interface)?;
         let valid_method = validate_with!(dbus::strings::Member, method)?;
 
+        // Parse the signature
+        let valid_signature = signature.map(|s| DbusType::parse_all(&s.item).map_err(|err| {
+            LabeledError {
+                label: err,
+                msg: "in signature specified here".into(),
+                span: Some(s.span),
+            }
+        })).transpose()?;
+
+        if let Some(sig) = &valid_signature {
+            if sig.len() != args.len() {
+                error!(format!("expected {} arguments, got {}", sig.len(), args.len()));
+            }
+        }
+
         // Construct the method call message
-        let message = Message::new_method_call(
+        let mut message = Message::new_method_call(
             valid_dest,
             valid_object,
             valid_interface,
             valid_method,
         ).map_err(|err| error!(err))?;
+
+        // Convert the args to message items
+        let sigs_iter = valid_signature.iter().flatten().map(Some).chain(std::iter::repeat(None));
+        for (val, sig) in args.iter().zip(sigs_iter) {
+            message = message.append1(to_message_item(val, sig)?);
+        }
 
         // Send it on the channel and get the response
         let resp = self.conn.send_with_reply_and_block(message, self.config.timeout.item)

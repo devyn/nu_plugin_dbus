@@ -1,9 +1,10 @@
 use nu_plugin::{serve_plugin, MsgPackSerializer, Plugin, EvaluatedCall, LabeledError};
-use nu_protocol::{PluginSignature, Value, SyntaxShape, PluginExample};
+use nu_protocol::{PluginSignature, Value, SyntaxShape, PluginExample, Span};
 
 mod config;
 mod client;
 mod convert;
+mod dbus_type;
 
 use config::*;
 use client::*;
@@ -25,7 +26,12 @@ impl Plugin for NuPluginDbus {
                 .is_dbus_command()
                 .accepts_dbus_client_options()
                 .usage("Call a method and get its response")
+                .extra_usage("Returns an array if the method call returns more than one value.")
                 .named("timeout", SyntaxShape::Duration, "How long to wait for a response", None)
+                .named("signature", SyntaxShape::String,
+                    "Signature of the arguments to send, in D-Bus format\n\
+                     If not provided, they will be guessed automatically (but poorly)", None)
+                .switch("no-flatten", "Always return a list of all return values", None)
                 .required_named("dest", SyntaxShape::String,
                     "The name of the connection to send the method to",
                     None)
@@ -35,6 +41,8 @@ impl Plugin for NuPluginDbus {
                     "The name of the interface the method belongs to")
                 .required("method", SyntaxShape::String,
                     "The name of the method to send")
+                .rest("args", SyntaxShape::Any,
+                    "Arguments to send with the method call")
                 .plugin_examples(vec![
                     PluginExample {
                         example: "dbus call --dest=org.freedesktop.DBus \
@@ -98,11 +106,23 @@ impl NuPluginDbus {
     fn call(&self, call: &EvaluatedCall) -> Result<Value, LabeledError> {
         let config = DbusClientConfig::try_from(call)?;
         let dbus = DbusClient::new(config)?;
-        dbus.call(
+        let values = dbus.call(
             &call.get_flag("dest")?.unwrap(),
             &call.req(0)?,
             &call.req(1)?,
             &call.req(2)?,
-        )
+            call.get_flag("signature")?.as_ref(),
+            &call.positional[3..]
+        )?;
+
+        let flatten = !call.get_flag::<bool>("no-flatten")?.unwrap_or(false);
+
+        // Make the output easier to deal with by returning a list only if there are multiple return
+        // values (not so common)
+        match values.len() {
+            0 if flatten => Ok(Value::nothing(Span::unknown())),
+            1 if flatten => Ok(values.into_iter().nth(0).unwrap()),
+            _            => Ok(Value::list(values, Span::unknown()))
+        }
     }
 }
