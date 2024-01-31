@@ -79,6 +79,6 @@ impl DbusClient {
         let resp = self.conn.send_with_reply_and_block(message, self.config.timeout.item)
             .map_err(|err| error!(err.to_string()))?;
 
-        Ok(crate::convert::from_message(&resp)?)
+        crate::convert::from_message(&resp).map_err(|err| error!(err))
     }
 }
