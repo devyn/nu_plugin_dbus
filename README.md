@@ -1,6 +1,12 @@
 # nu_plugin_dbus
 
-Install with Cargo: `cargo install --locked nu_plugin_dbus`
+## Install with Cargo
+
+Run: `cargo install --locked nu_plugin_dbus`
+
+Then add `register ~/.cargo/bin/nu_plugin_dbus` to your `~/.config/nushell/config.nu`
+
+## Usage
 
     Commands for interacting with D-Bus
 
