@@ -6,6 +6,8 @@ edition = "2021"
 description = "Nushell plugin for communicating with D-Bus"
 license = "MIT"
 keywords = ["plugin", "dbus", "nu"]
+categories = ["command-line-utilities"]
+repository = "https://github.com/devyn/nu_plugin_dbus"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
