@@ -60,8 +60,32 @@ impl Plugin for NuPluginDbus {
                         result: None
                     },
                     PluginExample {
-                        example: "dbus call --dest=org.mpris.MediaPlayer2.spotify \
-                            /org/mpris/MediaPlayer2 org.freedesktop.DBus.Properties Get \
+                        example: "dbus call --dest=org.freedesktop.Notifications \
+                            /org/freedesktop/Notifications org.freedesktop.Notifications \
+                            Notify \"Floppy disks\" 0 \"media-floppy\" \"Rarely seen\" \
+                            \"But sometimes still used\" [] {} 5000".into(),
+                        description: "Show a notification on the desktop for 5 seconds".into(),
+                        result: None
+                    },
+                ]),
+            PluginSignature::build("dbus get")
+                .is_dbus_command()
+                .accepts_dbus_client_options()
+                .usage("Get a D-Bus property")
+                .named("timeout", SyntaxShape::Duration, "How long to wait for a response", None)
+                .required_named("dest", SyntaxShape::String,
+                    "The name of the connection to read the property from",
+                    None)
+                .required("object", SyntaxShape::String,
+                    "The path to the object to read the property from")
+                .required("interface", SyntaxShape::String,
+                    "The name of the interface the property belongs to")
+                .required("property", SyntaxShape::String,
+                    "The name of the property to read")
+                .plugin_examples(vec![
+                    PluginExample {
+                        example: "dbus get --dest=org.mpris.MediaPlayer2.spotify \
+                            /org/mpris/MediaPlayer2 \
                             org.mpris.MediaPlayer2.Player Metadata".into(),
                         description: "Get the currently playing song in Spotify".into(),
                         result: Some(Value::record(nu_protocol::record!(
@@ -73,13 +97,60 @@ impl Plugin for NuPluginDbus {
                             "xesam:url" => str!("https://open.spotify.com/track/51748BvzeeMs4PIdPuyZmv"),
                         ), Span::unknown()))
                     },
+                ]),
+            PluginSignature::build("dbus get-all")
+                .is_dbus_command()
+                .accepts_dbus_client_options()
+                .usage("Get all D-Bus property for the given objects")
+                .named("timeout", SyntaxShape::Duration, "How long to wait for a response", None)
+                .required_named("dest", SyntaxShape::String,
+                    "The name of the connection to read the property from",
+                    None)
+                .required("object", SyntaxShape::String,
+                    "The path to the object to read the property from")
+                .required("interface", SyntaxShape::String,
+                    "The name of the interface the property belongs to")
+                .plugin_examples(vec![
                     PluginExample {
-                        example: "dbus call --dest=org.freedesktop.Notifications \
-                            /org/freedesktop/Notifications org.freedesktop.Notifications \
-                            Notify \"Floppy disks\" 0 \"media-floppy\" \"Rarely seen\" \
-                            \"But sometimes still used\" [] {} 5000".into(),
-                        description: "Show a notification on the desktop for 5 seconds".into(),
-                        result: None
+                        example: "dbus get-all --dest=org.mpris.MediaPlayer2.spotify \
+                            /org/mpris/MediaPlayer2 \
+                            org.mpris.MediaPlayer2.Player".into(),
+                        description: "Get the current player state of Spotify".into(),
+                        result: Some(Value::record(nu_protocol::record!(
+                            "CanPlay" => Value::bool(true, Span::unknown()),
+                            "Volume" => Value::float(0.43, Span::unknown()),
+                            "PlaybackStatus" => str!("Paused"),
+                        ), Span::unknown()))
+                    },
+                ]),
+            PluginSignature::build("dbus set")
+                .is_dbus_command()
+                .accepts_dbus_client_options()
+                .usage("Get all D-Bus property for the given objects")
+                .named("timeout", SyntaxShape::Duration, "How long to wait for a response", None)
+                .named("signature", SyntaxShape::String,
+                    "Signature of the value to set, in D-Bus format.\n    \
+                     If not provided, it will be determined from introspection.\n    \
+                     If --no-introspect is specified and this is not provided, it will \
+                       be guessed (poorly)", None)
+                .required_named("dest", SyntaxShape::String,
+                    "The name of the connection to write the property on",
+                    None)
+                .required("object", SyntaxShape::String,
+                    "The path to the object to write the property on")
+                .required("interface", SyntaxShape::String,
+                    "The name of the interface the property belongs to")
+                .required("property", SyntaxShape::String,
+                    "The name of the property to write")
+                .required("value", SyntaxShape::Any,
+                    "The value to write to the property")
+                .plugin_examples(vec![
+                    PluginExample {
+                        example: "dbus set --dest=org.mpris.MediaPlayer2.spotify \
+                            /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player \
+                            Volume 0.5".into(),
+                        description: "Set the volume of Spotify to 50%".into(),
+                        result: None,
                     },
                 ]),
         ]
@@ -99,6 +170,9 @@ impl Plugin for NuPluginDbus {
             }),
 
             "dbus call" => self.call(call),
+            "dbus get" => self.get(call),
+            "dbus get-all" => self.get_all(call),
+            "dbus set" => self.set(call),
 
             _ => Err(LabeledError {
                 label: "Plugin invoked with unknown command name".into(),
@@ -155,5 +229,40 @@ impl NuPluginDbus {
             1 if flatten => Ok(values.into_iter().nth(0).unwrap()),
             _            => Ok(Value::list(values, Span::unknown()))
         }
+    }
+
+    fn get(&self, call: &EvaluatedCall) -> Result<Value, LabeledError> {
+        let config = DbusClientConfig::try_from(call)?;
+        let dbus = DbusClient::new(config)?;
+        dbus.get(
+            &call.get_flag("dest")?.unwrap(),
+            &call.req(0)?,
+            &call.req(1)?,
+            &call.req(2)?,
+        )
+    }
+
+    fn get_all(&self, call: &EvaluatedCall) -> Result<Value, LabeledError> {
+        let config = DbusClientConfig::try_from(call)?;
+        let dbus = DbusClient::new(config)?;
+        dbus.get_all(
+            &call.get_flag("dest")?.unwrap(),
+            &call.req(0)?,
+            &call.req(1)?,
+        )
+    }
+
+    fn set(&self, call: &EvaluatedCall) -> Result<Value, LabeledError> {
+        let config = DbusClientConfig::try_from(call)?;
+        let dbus = DbusClient::new(config)?;
+        dbus.set(
+            &call.get_flag("dest")?.unwrap(),
+            &call.req(0)?,
+            &call.req(1)?,
+            &call.req(2)?,
+            call.get_flag("signature")?.as_ref(),
+            &call.req(3)?,
+        )?;
+        Ok(Value::nothing(Span::unknown()))
     }
 }

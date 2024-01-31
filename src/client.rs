@@ -1,6 +1,6 @@
-use dbus::{channel::{Channel, BusType}, Message};
+use dbus::{channel::{Channel, BusType}, Message, arg::messageitem::MessageItem};
 use nu_plugin::LabeledError;
-use nu_protocol::{Spanned, Value};
+use nu_protocol::{Spanned, Value, Span};
 
 use crate::{config::{DbusClientConfig, DbusBusChoice}, dbus_type::DbusType, convert::to_message_item, introspection::Node};
 
@@ -111,6 +111,34 @@ impl DbusClient {
         }
     }
 
+    /// Try to use introspection to get the signature of a property
+    fn get_property_signature_by_introspection(
+        &self,
+        dest: &Spanned<String>,
+        object: &Spanned<String>,
+        interface: &Spanned<String>,
+        property: &Spanned<String>,
+    ) -> Result<Vec<DbusType>, LabeledError> {
+        let node = self.introspect(dest, object)?;
+
+        if let Some(sig) = node.get_property_signature(&interface.item, &property.item) {
+            DbusType::parse_all(&sig).map_err(|err| LabeledError {
+                label: format!("while getting interface {:?} property {:?} signature: {}",
+                    interface.item,
+                    property.item,
+                    err),
+                msg: "try running with --no-introspect or --signature".into(),
+                span: Some(self.config.span),
+            })
+        } else {
+            Err(LabeledError {
+                label: format!("Property {:?} not found on {:?}", property.item, interface.item),
+                msg: "check that this property/interface is correct".into(),
+                span: Some(property.span),
+            })
+        }
+    }
+
     /// Call a D-Bus method and wait for the response
     pub fn call(
         &self,
@@ -179,5 +207,114 @@ impl DbusClient {
             .map_err(|err| self.error(err, context))?;
 
         crate::convert::from_message(&resp).map_err(|err| self.error(err, context))
+    }
+
+    /// Get a D-Bus property from the given object
+    pub fn get(
+        &self,
+        dest: &Spanned<String>,
+        object: &Spanned<String>,
+        interface: &Spanned<String>,
+        property: &Spanned<String>,
+    ) -> Result<Value, LabeledError> {
+        let interface_val = Value::string(&interface.item, interface.span);
+        let property_val = Value::string(&property.item, property.span);
+
+        self.call(
+            dest,
+            object,
+            &Spanned { item: "org.freedesktop.DBus.Properties".into(), span: Span::unknown() },
+            &Spanned { item: "Get".into(), span: Span::unknown() },
+            Some(&Spanned { item: "ss".into(), span: Span::unknown() }),
+            &[interface_val, property_val]
+        ).map(|val| val.into_iter().nth(0).unwrap_or(Value::nothing(Span::unknown())))
+    }
+
+    /// Get all D-Bus properties from the given object
+    pub fn get_all(
+        &self,
+        dest: &Spanned<String>,
+        object: &Spanned<String>,
+        interface: &Spanned<String>,
+    ) -> Result<Value, LabeledError> {
+        let interface_val = Value::string(&interface.item, interface.span);
+
+        self.call(
+            dest,
+            object,
+            &Spanned { item: "org.freedesktop.DBus.Properties".into(), span: Span::unknown() },
+            &Spanned { item: "GetAll".into(), span: Span::unknown() },
+            Some(&Spanned { item: "s".into(), span: Span::unknown() }),
+            &[interface_val]
+        ).map(|val| val.into_iter().nth(0).unwrap_or(Value::nothing(Span::unknown())))
+    }
+
+    /// Set a D-Bus property on the given object
+    pub fn set(
+        &self,
+        dest: &Spanned<String>,
+        object: &Spanned<String>,
+        interface: &Spanned<String>,
+        property: &Spanned<String>,
+        signature: Option<&Spanned<String>>,
+        value: &Value,
+    ) -> Result<(), LabeledError> {
+        let context = "while setting a D-Bus property";
+
+        // Validate inputs before sending to the dbus lib so we don't panic
+        let valid_dest = validate_with!(dbus::strings::BusName, dest)?;
+        let valid_object = validate_with!(dbus::strings::Path, object)?;
+
+        // Parse the signature
+        let mut valid_signature = signature.map(|s| DbusType::parse_all(&s.item).map_err(|err| {
+            LabeledError {
+                label: err,
+                msg: "in signature specified here".into(),
+                span: Some(s.span),
+            }
+        })).transpose()?;
+
+        // If not provided, try introspection (unless disabled)
+        if valid_signature.is_none() && self.config.introspect {
+            match self.get_property_signature_by_introspection(dest, object, interface, property) {
+                Ok(sig) => {
+                    valid_signature = Some(sig);
+                },
+                Err(err) => {
+                    eprintln!("Warning: D-Bus introspection failed on {:?}. \
+                        Use `--no-introspect` or pass `--signature` to silence this warning. \
+                        Cause: {}",
+                        object.item,
+                        err.label);
+                }
+            }
+        }
+
+        if let Some(sig) = &valid_signature {
+            if sig.len() != 1 {
+                self.error(format!(
+                    "expected single object signature, but there are {}", sig.len()), context);
+            }
+        }
+
+        // Construct the method call message
+        let message = Message::new_method_call(
+            valid_dest,
+            valid_object,
+            "org.freedesktop.DBus.Properties",
+            "Set",
+        ).map_err(|err| self.error(err, context))?
+            .append2(&interface.item, &property.item)
+            .append1(
+                // Box it in a variant as required for property setting
+                MessageItem::Variant(Box::new(
+                    to_message_item(value, valid_signature.as_ref().map(|s| &s[0]))?))
+            );
+
+        // Send it on the channel and get the response
+        self.conn.send_with_reply_and_block(message, self.config.timeout.item)
+            .map_err(|err| self.error(err, context))?;
+
+        Ok(())
     }
 }

@@ -36,6 +36,11 @@ impl Node {
     pub fn get_method_args_signature(&self, interface: &str, method: &str) -> Option<String> {
         Some(self.get_interface(interface)?.get_method(method)?.in_signature())
     }
+
+    /// Find the signature of a property on an interface on this node
+    pub fn get_property_signature(&self, interface: &str, property: &str) -> Option<&str> {
+        Some(&self.get_interface(interface)?.get_property(property)?.r#type)
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
@@ -62,7 +67,6 @@ impl Interface {
         self.signals.iter().find(|s| s.name == name)
     }
 
-    #[allow(dead_code)]
     pub fn get_property(&self, name: &str) -> Option<&Property> {
         self.properties.iter().find(|p| p.name == name)
     }
