@@ -223,7 +223,7 @@ pub fn test_introspection_doc_rs() -> Node {
                 Signal {
                     name: "Changed".into(),
                     args: vec![
-                        SignalArg { name: "new_value".into(), r#type: "b".into() },
+                        SignalArg { name: Some("new_value".into()), r#type: "b".into() },
                     ],
                     annotations: vec![]
                 },
