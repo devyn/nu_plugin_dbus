@@ -1,5 +1,7 @@
 # nu_plugin_dbus
 
+Install with Cargo: `cargo install --locked nu_plugin_dbus`
+
     Commands for interacting with D-Bus
 
     Search terms: dbus
