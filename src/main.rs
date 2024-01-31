@@ -5,6 +5,7 @@ mod config;
 mod client;
 mod convert;
 mod dbus_type;
+mod introspection;
 
 use config::*;
 use client::*;
@@ -18,6 +19,9 @@ struct NuPluginDbus;
 
 impl Plugin for NuPluginDbus {
     fn signature(&self) -> Vec<PluginSignature> {
+        macro_rules! str {
+            ($s:expr) => (Value::string($s, Span::unknown()))
+        }
         vec![
             PluginSignature::build("dbus")
                 .is_dbus_command()
@@ -29,9 +33,14 @@ impl Plugin for NuPluginDbus {
                 .extra_usage("Returns an array if the method call returns more than one value.")
                 .named("timeout", SyntaxShape::Duration, "How long to wait for a response", None)
                 .named("signature", SyntaxShape::String,
-                    "Signature of the arguments to send, in D-Bus format\n\
-                     If not provided, they will be guessed automatically (but poorly)", None)
-                .switch("no-flatten", "Always return a list of all return values", None)
+                    "Signature of the arguments to send, in D-Bus format.\n    \
+                     If not provided, they will be determined from introspection.\n    \
+                     If --no-introspect is specified and this is not provided, they will \
+                       be guessed (poorly)", None)
+                .switch("no-flatten",
+                    "Always return a list of all return values", None)
+                .switch("no-introspect",
+                    "Don't use introspection to determine the correct argument signature", None)
                 .required_named("dest", SyntaxShape::String,
                     "The name of the connection to send the method to",
                     None)
@@ -49,7 +58,29 @@ impl Plugin for NuPluginDbus {
                             /org/freedesktop/DBus org.freedesktop.DBus.Peer Ping".into(),
                         description: "Ping the D-Bus server itself".into(),
                         result: None
-                    }
+                    },
+                    PluginExample {
+                        example: "dbus call --dest=org.mpris.MediaPlayer2.spotify \
+                            /org/mpris/MediaPlayer2 org.freedesktop.DBus.Properties Get \
+                            org.mpris.MediaPlayer2.Player Metadata".into(),
+                        description: "Get the currently playing song in Spotify".into(),
+                        result: Some(Value::record(nu_protocol::record!(
+                            "xesam:title" => str!("Birdie"),
+                            "xesam:artist" => Value::list(vec![
+                                str!("LOVE PSYCHEDELICO")
+                            ], Span::unknown()),
+                            "xesam:album" => str!("Love Your Love"),
+                            "xesam:url" => str!("https://open.spotify.com/track/51748BvzeeMs4PIdPuyZmv"),
+                        ), Span::unknown()))
+                    },
+                    PluginExample {
+                        example: "dbus call --dest=org.freedesktop.Notifications \
+                            /org/freedesktop/Notifications org.freedesktop.Notifications \
+                            Notify \"Floppy disks\" 0 \"media-floppy\" \"Rarely seen\" \
+                            \"But sometimes still used\" [] {} 5000".into(),
+                        description: "Show a notification on the desktop for 5 seconds".into(),
+                        result: None
+                    },
                 ]),
         ]
     }

@@ -142,12 +142,12 @@ pub fn to_message_item(value: &Value, expected_type: Option<&DbusType>)
             Ok(MessageItem::Double(try_convert!(f64::from_str(&val[..])))),
 
         // List/array
-        (Value::List { vals, .. }, Some(DbusType::Array(content_type))) => {
-            let content_sig = Signature::from(content_type.stringify());
+        (Value::List { vals, .. }, Some(r#type @ DbusType::Array(content_type))) => {
+            let sig = Signature::from(r#type.stringify());
             let items = vals.iter()
                 .map(|content| to_message_item(content, Some(content_type)))
                 .collect::<Result<Vec<MessageItem>, _>>()?;
-            Ok(MessageItem::Array(MessageItemArray::new(items, content_sig).unwrap()))
+            Ok(MessageItem::Array(MessageItemArray::new(items, sig).unwrap()))
         },
 
         // Struct

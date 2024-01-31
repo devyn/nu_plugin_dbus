@@ -9,3 +9,5 @@ edition = "2021"
 dbus = "0.9.7"
 nu-plugin = "0.89.0"
 nu-protocol = { version = "0.89.0", features = ["plugin"] }
+serde = { version = "1.0.196", features = ["derive"] }
+serde-xml-rs = "0.6.0"

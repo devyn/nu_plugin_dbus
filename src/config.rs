@@ -7,8 +7,12 @@ use nu_protocol::{Spanned, Span};
 #[derive(Debug, Clone)]
 pub struct DbusClientConfig {
     pub span: Span,
+    /// Which bus should we connect to?
     pub bus_choice: Spanned<DbusBusChoice>,
+    /// How long to wait for a method call to return
     pub timeout: Spanned<Duration>,
+    /// Enable introspection if signature unknown (default true)
+    pub introspect: bool,
 }
 
 /// Where to connect to the D-Bus server
@@ -35,6 +39,7 @@ impl TryFrom<&EvaluatedCall> for DbusClientConfig {
             span: call.head,
             bus_choice: Spanned { item: DbusBusChoice::default(), span: call.head },
             timeout: Spanned { item: Duration::from_secs(2), span: call.head },
+            introspect: true,
         };
 
         // Handle recognized config args
@@ -74,6 +79,11 @@ impl TryFrom<&EvaluatedCall> for DbusClientConfig {
                         let item = Duration::from_nanos(nanos);
                         config.timeout = Spanned { item, span: value.span() };
                     }
+                },
+                "no-introspect" => {
+                    config.introspect = !value.as_ref()
+                        .and_then(|v| v.as_bool().ok())
+                        .unwrap_or(false);
                 },
                 _ => ()
             }
