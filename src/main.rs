@@ -1,5 +1,5 @@
 use nu_plugin::{serve_plugin, MsgPackSerializer, Plugin, EvaluatedCall, LabeledError};
-use nu_protocol::{PluginSignature, Value, SyntaxShape, PluginExample, Span};
+use nu_protocol::{PluginSignature, Value, SyntaxShape, PluginExample, Span, Type};
 
 mod config;
 mod client;
@@ -34,6 +34,7 @@ impl Plugin for NuPluginDbus {
                 .accepts_dbus_client_options()
                 .accepts_timeout()
                 .usage("Introspect a D-Bus object")
+                .input_output_type(Type::Nothing, Type::Record(vec![]))
                 .extra_usage("Returns information about available nodes, interfaces, methods, \
                     signals, and properties on the given object path")
                 .required_named("dest", SyntaxShape::String,
@@ -69,6 +70,7 @@ impl Plugin for NuPluginDbus {
                 .accepts_timeout()
                 .usage("Call a method and get its response")
                 .extra_usage("Returns an array if the method call returns more than one value.")
+                .input_output_type(Type::Nothing, Type::Any)
                 .named("signature", SyntaxShape::String,
                     "Signature of the arguments to send, in D-Bus format.\n    \
                      If not provided, they will be determined from introspection.\n    \
@@ -110,6 +112,7 @@ impl Plugin for NuPluginDbus {
                 .accepts_dbus_client_options()
                 .accepts_timeout()
                 .usage("Get a D-Bus property")
+                .input_output_type(Type::Nothing, Type::Any)
                 .required_named("dest", SyntaxShape::String,
                     "The name of the connection to read the property from",
                     None)
@@ -139,7 +142,8 @@ impl Plugin for NuPluginDbus {
                 .is_dbus_command()
                 .accepts_dbus_client_options()
                 .accepts_timeout()
-                .usage("Get all D-Bus property for the given objects")
+                .usage("Get all D-Bus properties for the given object")
+                .input_output_type(Type::Nothing, Type::Record(vec![]))
                 .required_named("dest", SyntaxShape::String,
                     "The name of the connection to read the property from",
                     None)
@@ -164,7 +168,8 @@ impl Plugin for NuPluginDbus {
                 .is_dbus_command()
                 .accepts_dbus_client_options()
                 .accepts_timeout()
-                .usage("Get all D-Bus property for the given objects")
+                .usage("Set a D-Bus property")
+                .input_output_type(Type::Nothing, Type::Nothing)
                 .named("signature", SyntaxShape::String,
                     "Signature of the value to set, in D-Bus format.\n    \
                      If not provided, it will be determined from introspection.\n    \
@@ -196,6 +201,7 @@ impl Plugin for NuPluginDbus {
                 .accepts_timeout()
                 .usage("List all available connection names on the bus")
                 .extra_usage("These can be used as arguments for --dest on any of the other commands.")
+                .input_output_type(Type::Nothing, Type::List(Type::String.into()))
                 .optional("pattern", SyntaxShape::String,
                     "An optional glob-like pattern to filter the result by")
                 .plugin_examples(vec![
