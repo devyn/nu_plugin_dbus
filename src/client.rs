@@ -1,6 +1,6 @@
 use dbus::{channel::{Channel, BusType}, Message, arg::messageitem::MessageItem};
 use nu_plugin::LabeledError;
-use nu_protocol::{Spanned, Value, Span};
+use nu_protocol::{Spanned, Value};
 
 use crate::{config::{DbusClientConfig, DbusBusChoice}, dbus_type::DbusType, convert::to_message_item, introspection::Node};
 
@@ -206,7 +206,8 @@ impl DbusClient {
         let resp = self.conn.send_with_reply_and_block(message, self.config.timeout.item)
             .map_err(|err| self.error(err, context))?;
 
-        crate::convert::from_message(&resp).map_err(|err| self.error(err, context))
+        crate::convert::from_message(&resp, self.config.span)
+            .map_err(|err| self.error(err, context))
     }
 
     /// Get a D-Bus property from the given object
@@ -223,11 +224,11 @@ impl DbusClient {
         self.call(
             dest,
             object,
-            &Spanned { item: "org.freedesktop.DBus.Properties".into(), span: Span::unknown() },
-            &Spanned { item: "Get".into(), span: Span::unknown() },
-            Some(&Spanned { item: "ss".into(), span: Span::unknown() }),
+            &Spanned { item: "org.freedesktop.DBus.Properties".into(), span: self.config.span },
+            &Spanned { item: "Get".into(), span: self.config.span },
+            Some(&Spanned { item: "ss".into(), span: self.config.span }),
             &[interface_val, property_val]
-        ).map(|val| val.into_iter().nth(0).unwrap_or(Value::nothing(Span::unknown())))
+        ).map(|val| val.into_iter().nth(0).unwrap_or_default())
     }
 
     /// Get all D-Bus properties from the given object
@@ -242,11 +243,11 @@ impl DbusClient {
         self.call(
             dest,
             object,
-            &Spanned { item: "org.freedesktop.DBus.Properties".into(), span: Span::unknown() },
-            &Spanned { item: "GetAll".into(), span: Span::unknown() },
-            Some(&Spanned { item: "s".into(), span: Span::unknown() }),
+            &Spanned { item: "org.freedesktop.DBus.Properties".into(), span: self.config.span },
+            &Spanned { item: "GetAll".into(), span: self.config.span },
+            Some(&Spanned { item: "s".into(), span: self.config.span }),
             &[interface_val]
-        ).map(|val| val.into_iter().nth(0).unwrap_or(Value::nothing(Span::unknown())))
+        ).map(|val| val.into_iter().nth(0).unwrap_or_default())
     }
 
     /// Set a D-Bus property on the given object

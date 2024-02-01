@@ -225,9 +225,9 @@ impl NuPluginDbus {
         // Make the output easier to deal with by returning a list only if there are multiple return
         // values (not so common)
         match values.len() {
-            0 if flatten => Ok(Value::nothing(Span::unknown())),
+            0 if flatten => Ok(Value::nothing(call.head)),
             1 if flatten => Ok(values.into_iter().nth(0).unwrap()),
-            _            => Ok(Value::list(values, Span::unknown()))
+            _            => Ok(Value::list(values, call.head))
         }
     }
 
@@ -263,6 +263,6 @@ impl NuPluginDbus {
             call.get_flag("signature")?.as_ref(),
             &call.req(3)?,
         )?;
-        Ok(Value::nothing(Span::unknown()))
+        Ok(Value::nothing(call.head))
     }
 }

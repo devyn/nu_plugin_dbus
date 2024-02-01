@@ -6,15 +6,15 @@ use std::str::FromStr;
 use crate::dbus_type::DbusType;
 
 /// Get the arguments of a message as nushell Values
-pub fn from_message(message: &Message) -> Result<Vec<Value>, String> {
+pub fn from_message(message: &Message, span: Span) -> Result<Vec<Value>, String> {
     let mut out = vec![];
     for refarg in message.iter_init() {
-        out.push(from_refarg(&refarg)?);
+        out.push(from_refarg(&refarg, span)?);
     }
     Ok(out)
 }
 
-pub fn from_refarg(refarg: &dyn RefArg) -> Result<Value, String> {
+pub fn from_refarg(refarg: &dyn RefArg, span: Span) -> Result<Value, String> {
     Ok(match refarg.arg_type() {
         ArgType::Array => {
             if refarg.signature().starts_with("a{") {
@@ -24,48 +24,48 @@ pub fn from_refarg(refarg: &dyn RefArg) -> Result<Value, String> {
                 while let Some(key) = iter.next() {
                     if let Some(val) = iter.next() {
                         if let Some(key_str) = key.as_str() {
-                            record.insert(key_str, from_refarg(val)?);
+                            record.insert(key_str, from_refarg(val, span)?);
                         }
                     }
                 }
-                Value::record(record, Span::unknown())
+                Value::record(record, span)
             } else if &*refarg.signature() == "ay" {
                 // Byte array - better to return as binary
                 let bytes = dbus::arg::cast::<Vec<u8>>(&refarg.box_clone()).unwrap().to_owned();
-                Value::binary(bytes, Span::unknown())
+                Value::binary(bytes, span)
             } else {
                 // It's an array
                 Value::list(
-                    refarg.as_iter().unwrap().map(from_refarg).flatten().collect(),
-                    Span::unknown())
+                    refarg.as_iter().unwrap().map(|v| from_refarg(v, span)).flatten().collect(),
+                    span)
             }
         },
         ArgType::Variant => {
             let inner = refarg.as_iter().unwrap().nth(0).unwrap();
-            return from_refarg(inner);
+            return from_refarg(inner, span);
         },
         ArgType::Boolean =>
-            Value::bool(refarg.as_i64().unwrap() != 0, Span::unknown()),
+            Value::bool(refarg.as_i64().unwrap() != 0, span),
 
         // Strings
         ArgType::String | ArgType::ObjectPath | ArgType::Signature =>
-            Value::string(refarg.as_str().unwrap(), Span::unknown()),
+            Value::string(refarg.as_str().unwrap(), span),
         // Ints
         ArgType::Byte | ArgType::Int16 | ArgType::UInt16 | ArgType::Int32 |
         ArgType::UInt32 | ArgType::Int64 | ArgType::UnixFd =>
-            Value::int(refarg.as_i64().unwrap(), Span::unknown()),
+            Value::int(refarg.as_i64().unwrap(), span),
 
         // Nushell doesn't support u64, so present it as a string
-        ArgType::UInt64 => Value::string(refarg.as_u64().unwrap().to_string(), Span::unknown()),
+        ArgType::UInt64 => Value::string(refarg.as_u64().unwrap().to_string(), span),
 
         // Floats
         ArgType::Double =>
-            Value::float(refarg.as_f64().unwrap(), Span::unknown()),
+            Value::float(refarg.as_f64().unwrap(), span),
 
         ArgType::Struct =>
             Value::list(
-                refarg.as_iter().unwrap().map(from_refarg).flatten().collect(),
-                Span::unknown()),
+                refarg.as_iter().unwrap().map(|v| from_refarg(v, span)).flatten().collect(),
+                span),
 
         ArgType::DictEntry =>
             return Err("Encountered dictionary entry outside of dictionary".into()),
