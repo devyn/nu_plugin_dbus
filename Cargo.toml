@@ -1,9 +1,10 @@
 [package]
 name = "nu_plugin_dbus"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2021"
 
 description = "Nushell plugin for communicating with D-Bus"
+authors = ["Devyn Cairns <devyn.cairns@gmail.com>"]
 license = "MIT"
 keywords = ["plugin", "dbus", "nu"]
 categories = ["command-line-utilities"]
