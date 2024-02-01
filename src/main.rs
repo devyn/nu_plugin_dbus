@@ -26,6 +26,40 @@ impl Plugin for NuPluginDbus {
             PluginSignature::build("dbus")
                 .is_dbus_command()
                 .usage("Commands for interacting with D-Bus"),
+            PluginSignature::build("dbus introspect")
+                .is_dbus_command()
+                .accepts_dbus_client_options()
+                .usage("Introspect a D-Bus object")
+                .extra_usage("Returns information about available nodes, interfaces, methods, \
+                    signals, and properties on the given object path")
+                .named("timeout", SyntaxShape::Duration, "How long to wait for a response", None)
+                .required_named("dest", SyntaxShape::String,
+                    "The name of the connection that owns the object",
+                    None)
+                .required("object", SyntaxShape::String,
+                    "The path to the object to introspect")
+                .plugin_examples(vec![
+                    PluginExample {
+                        example: "dbus introspect --dest=org.mpris.MediaPlayer2.spotify \
+                            /org/mpris/MediaPlayer2 | explore".into(),
+                        description: "Look at the MPRIS2 interfaces exposed by Spotify".into(),
+                        result: None,
+                    },
+                    PluginExample {
+                        example: "dbus introspect --dest=org.kde.plasmashell \
+                            /org/kde/osdService | get interfaces | \
+                            where name == org.kde.osdService | get 0.methods".into(),
+                        description: "Get methods exposed by KDE Plasma's on-screen display \
+                            service".into(),
+                        result: None,
+                    },
+                    PluginExample {
+                        example: "dbus introspect --dest=org.kde.KWin / | get children | \
+                            select name".into(),
+                        description: "List objects exposed by KWin".into(),
+                        result: None,
+                    },
+                ]),
             PluginSignature::build("dbus call")
                 .is_dbus_command()
                 .accepts_dbus_client_options()
@@ -169,6 +203,7 @@ impl Plugin for NuPluginDbus {
                 span: Some(call.head)
             }),
 
+            "dbus introspect" => self.introspect(call),
             "dbus call" => self.call(call),
             "dbus get" => self.get(call),
             "dbus get-all" => self.get_all(call),
@@ -208,6 +243,16 @@ impl DbusSignatureUtilExt for PluginSignature {
 }
 
 impl NuPluginDbus {
+    fn introspect(&self, call: &EvaluatedCall) -> Result<Value, LabeledError> {
+        let config = DbusClientConfig::try_from(call)?;
+        let dbus = DbusClient::new(config)?;
+        let node = dbus.introspect(
+            &call.get_flag("dest")?.unwrap(),
+            &call.req(0)?,
+        )?;
+        Ok(node.to_value(call.head))
+    }
+
     fn call(&self, call: &EvaluatedCall) -> Result<Value, LabeledError> {
         let config = DbusClientConfig::try_from(call)?;
         let dbus = DbusClient::new(config)?;

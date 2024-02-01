@@ -19,10 +19,45 @@ Then add `register ~/.cargo/bin/nu_plugin_dbus` to your `~/.config/nushell/confi
       dbus call - Call a method and get its response
       dbus get - Get a D-Bus property
       dbus get-all - Get all D-Bus property for the given objects
+      dbus introspect - Introspect a D-Bus object
       dbus set - Get all D-Bus property for the given objects
 
     Flags:
       -h, --help - Display the help message for this command
+
+## `dbus introspect`
+
+    Introspect a D-Bus object
+
+    Returns information about available nodes, interfaces, methods, signals, and properties on the given object path
+
+    Search terms: dbus
+
+    Usage:
+      > dbus introspect {flags} <object> 
+
+    Flags:
+      -h, --help - Display the help message for this command
+      --session - Send to the session message bus (default)
+      --system - Send to the system message bus
+      --started - Send to the bus that started this process, if applicable
+      --bus <String> - Send to the bus server at the given address
+      --peer <String> - Send to a non-bus D-Bus server at the given address. Will not call the Hello method on initialization.
+      --timeout <Duration> - How long to wait for a response
+      --dest (required parameter) <String> - The name of the connection that owns the object
+
+    Parameters:
+      object <string>: The path to the object to introspect
+
+    Examples:
+      Look at the MPRIS2 interfaces exposed by Spotify
+      > dbus introspect --dest=org.mpris.MediaPlayer2.spotify /org/mpris/MediaPlayer2 | explore
+
+      Get methods exposed by KDE Plasma's on-screen display service
+      > dbus introspect --dest=org.kde.plasmashell /org/kde/osdService | get interfaces | where name == org.kde.osdService | get 0.methods
+
+      List objects exposed by KWin
+      > dbus introspect --dest=org.kde.KWin / | get children | select name
 
 ## `dbus call`
 

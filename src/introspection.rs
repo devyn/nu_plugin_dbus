@@ -1,4 +1,11 @@
+use nu_protocol::{Value, record, Span};
 use serde::Deserialize;
+
+macro_rules! list_to_value {
+    ($list:expr, $span:expr) => (
+        Value::list($list.iter().map(|i| i.to_value($span)).collect(), $span)
+    )
+}
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "kebab-case")]
@@ -41,6 +48,15 @@ impl Node {
     pub fn get_property_signature(&self, interface: &str, property: &str) -> Option<&str> {
         Some(&self.get_interface(interface)?.get_property(property)?.r#type)
     }
+
+    /// Represent the node as a nushell [Value]
+    pub fn to_value(&self, span: Span) -> Value {
+        Value::record(record!{
+            "name" => self.name.as_ref().map(|s| Value::string(s, span)).unwrap_or_default(),
+            "interfaces" => list_to_value!(self.interfaces, span),
+            "children" => list_to_value!(self.children, span),
+        }, span)
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
@@ -69,6 +85,17 @@ impl Interface {
 
     pub fn get_property(&self, name: &str) -> Option<&Property> {
         self.properties.iter().find(|p| p.name == name)
+    }
+
+    /// Represent the interface as a nushell [Value]
+    pub fn to_value(&self, span: Span) -> Value {
+        Value::record(record!{
+            "name" => Value::string(&self.name, span),
+            "methods" => list_to_value!(self.methods, span),
+            "signals" => list_to_value!(self.signals, span),
+            "properties" => list_to_value!(self.properties, span),
+            "signals" => list_to_value!(self.signals, span),
+        }, span)
     }
 }
 
@@ -99,6 +126,15 @@ impl Method {
             .map(|arg| &arg.r#type[..])
             .collect()
     }
+
+    /// Represent the method as a nushell [Value]
+    pub fn to_value(&self, span: Span) -> Value {
+        Value::record(record!{
+            "name" => Value::string(&self.name, span),
+            "args" => list_to_value!(self.args, span),
+            "annotations" => list_to_value!(self.annotations, span),
+        }, span)
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
@@ -124,6 +160,15 @@ impl MethodArg {
             direction,
         }
     }
+
+    /// Represent the method as a nushell [Value]
+    pub fn to_value(&self, span: Span) -> Value {
+        Value::record(record!{
+            "name" => self.name.as_ref().map(|n| Value::string(n, span)).unwrap_or_default(),
+            "type" => Value::string(&self.r#type, span),
+            "direction" => self.direction.to_value(span),
+        }, span)
+    }
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]
@@ -132,6 +177,16 @@ pub enum Direction {
     #[default]
     In,
     Out,
+}
+
+impl Direction {
+    /// Represent the direction as a nushell [Value]
+    pub fn to_value(&self, span: Span) -> Value {
+        match self {
+            Direction::In => Value::string("in", span),
+            Direction::Out => Value::string("out", span),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
@@ -144,12 +199,33 @@ pub struct Signal {
     pub annotations: Vec<Annotation>,
 }
 
+impl Signal {
+    /// Represent the signal as a nushell [Value]
+    pub fn to_value(&self, span: Span) -> Value {
+        Value::record(record!{
+            "name" => Value::string(&self.name, span),
+            "args" => list_to_value!(self.args, span),
+            "annotations" => list_to_value!(self.annotations, span),
+        }, span)
+    }
+}
+
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
 pub struct SignalArg {
     #[serde(default)]
     pub name: Option<String>,
     pub r#type: String,
+}
+
+impl SignalArg {
+    /// Represent the argument as a nushell [Value]
+    pub fn to_value(&self, span: Span) -> Value {
+        Value::record(record!{
+            "name" => self.name.as_ref().map(|n| Value::string(n, span)).unwrap_or_default(),
+            "type" => Value::string(&self.r#type, span),
+        }, span)
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
@@ -162,12 +238,35 @@ pub struct Property {
     pub annotations: Vec<Annotation>,
 }
 
+impl Property {
+    /// Represent the property as a nushell [Value]
+    pub fn to_value(&self, span: Span) -> Value {
+        Value::record(record!{
+            "name" => Value::string(&self.name, span),
+            "type" => Value::string(&self.r#type, span),
+            "args" => self.access.to_value(span),
+            "annotations" => list_to_value!(self.annotations, span),
+        }, span)
+    }
+}
+
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum Access {
     Read,
     Write,
     ReadWrite,
+}
+
+impl Access {
+    /// Represent the access as a nushell [Value]
+    pub fn to_value(&self, span: Span) -> Value {
+        match self {
+            Access::Read => Value::string("read", span),
+            Access::Write => Value::string("write", span),
+            Access::ReadWrite => Value::string("readwrite", span),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
@@ -181,6 +280,14 @@ impl Annotation {
     #[cfg(test)]
     pub fn new(name: impl Into<String>, value: impl Into<String>) -> Annotation {
         Annotation { name: name.into(), value: value.into() }
+    }
+
+    /// Represent the annotation as a nushell [Value]
+    pub fn to_value(&self, span: Span) -> Value {
+        Value::record(record!{
+            "name" => Value::string(&self.name, span),
+            "value" => Value::string(&self.value, span),
+        }, span)
     }
 }
 
