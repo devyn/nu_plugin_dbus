@@ -337,7 +337,6 @@ impl DbusClient {
             .map(|names: Vec<String>| {
                 // Filter the names by the pattern
                 if let Some(pattern) = pattern {
-                    eprintln!("pattern: {:?}", pattern);
                     names.into_iter().filter(|name| pattern.is_match(name)).collect()
                 } else {
                     names
