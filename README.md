@@ -20,6 +20,7 @@ Then add `register ~/.cargo/bin/nu_plugin_dbus` to your `~/.config/nushell/confi
       dbus get - Get a D-Bus property
       dbus get-all - Get all D-Bus property for the given objects
       dbus introspect - Introspect a D-Bus object
+      dbus list - List all available connection names on the bus
       dbus set - Get all D-Bus property for the given objects
 
     Flags:
@@ -196,3 +197,44 @@ Then add `register ~/.cargo/bin/nu_plugin_dbus` to your `~/.config/nushell/confi
       Set the volume of Spotify to 50%
       > dbus set --dest=org.mpris.MediaPlayer2.spotify /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player Volume 0.5
 
+## `dbus list`
+
+    List all available connection names on the bus
+
+    These can be used as arguments for --dest on any of the other commands.
+
+    Search terms: dbus
+
+    Usage:
+      > dbus list {flags} (pattern) 
+
+    Flags:
+      -h, --help - Display the help message for this command
+      --session - Send to the session message bus (default)
+      --system - Send to the system message bus
+      --started - Send to the bus that started this process, if applicable
+      --bus <String> - Send to the bus server at the given address
+      --peer <String> - Send to a non-bus D-Bus server at the given address. Will not call the Hello method on initialization.
+      --timeout <Duration> - How long to wait for a response
+
+    Parameters:
+      pattern <string>: An optional glob-like pattern to filter the result by (optional)
+
+    Examples:
+      List all names available on the bus
+      > dbus list
+
+      List top-level freedesktop.org names on the bus (e.g. matches `org.freedesktop.PowerManagement`, but not `org.freedesktop.Management.Inhibit`)
+      > dbus list org.freedesktop.*
+      ╭───┬───────────────────────────────╮
+      │ 0 │ org.freedesktop.DBus          │
+      │ 1 │ org.freedesktop.Flatpak       │
+      │ 2 │ org.freedesktop.Notifications │
+      ╰───┴───────────────────────────────╯
+
+      List all MPRIS2 media players on the bus
+      > dbus list org.mpris.MediaPlayer2.**
+      ╭───┬────────────────────────────────────────────────╮
+      │ 0 │ org.mpris.MediaPlayer2.spotify                 │
+      │ 1 │ org.mpris.MediaPlayer2.kdeconnect.mpris_000001 │
+      ╰───┴────────────────────────────────────────────────╯

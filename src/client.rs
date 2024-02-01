@@ -2,7 +2,7 @@ use dbus::{channel::{Channel, BusType}, Message, arg::messageitem::MessageItem};
 use nu_plugin::LabeledError;
 use nu_protocol::{Spanned, Value};
 
-use crate::{config::{DbusClientConfig, DbusBusChoice}, dbus_type::DbusType, convert::to_message_item, introspection::Node};
+use crate::{config::{DbusClientConfig, DbusBusChoice}, dbus_type::DbusType, convert::to_message_item, introspection::Node, pattern::Pattern};
 
 /// Executes D-Bus actions on a connection, handling nushell types
 pub struct DbusClient {
@@ -317,5 +317,31 @@ impl DbusClient {
             .map_err(|err| self.error(err, context))?;
 
         Ok(())
+    }
+
+    pub fn list(&self, pattern: Option<&Pattern>)
+        -> Result<Vec<String>, LabeledError>
+    {
+        let context = "while listing D-Bus connection names";
+
+        let message = Message::new_method_call(
+            "org.freedesktop.DBus",
+            "/org/freedesktop/DBus",
+            "org.freedesktop.DBus",
+            "ListNames"
+        ).map_err(|err| self.error(err, context))?;
+
+        self.conn.send_with_reply_and_block(message, self.config.timeout.item)
+            .map_err(|err| self.error(err, context))
+            .and_then(|reply| reply.read1().map_err(|err| self.error(err, context)))
+            .map(|names: Vec<String>| {
+                // Filter the names by the pattern
+                if let Some(pattern) = pattern {
+                    eprintln!("pattern: {:?}", pattern);
+                    names.into_iter().filter(|name| pattern.is_match(name)).collect()
+                } else {
+                    names
+                }
+            })
     }
 }

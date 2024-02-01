@@ -6,9 +6,12 @@ mod client;
 mod convert;
 mod dbus_type;
 mod introspection;
+mod pattern;
 
 use config::*;
 use client::*;
+
+use crate::pattern::Pattern;
 
 fn main() {
     serve_plugin(&mut NuPluginDbus, MsgPackSerializer)
@@ -29,10 +32,10 @@ impl Plugin for NuPluginDbus {
             PluginSignature::build("dbus introspect")
                 .is_dbus_command()
                 .accepts_dbus_client_options()
+                .accepts_timeout()
                 .usage("Introspect a D-Bus object")
                 .extra_usage("Returns information about available nodes, interfaces, methods, \
                     signals, and properties on the given object path")
-                .named("timeout", SyntaxShape::Duration, "How long to wait for a response", None)
                 .required_named("dest", SyntaxShape::String,
                     "The name of the connection that owns the object",
                     None)
@@ -63,9 +66,9 @@ impl Plugin for NuPluginDbus {
             PluginSignature::build("dbus call")
                 .is_dbus_command()
                 .accepts_dbus_client_options()
+                .accepts_timeout()
                 .usage("Call a method and get its response")
                 .extra_usage("Returns an array if the method call returns more than one value.")
-                .named("timeout", SyntaxShape::Duration, "How long to wait for a response", None)
                 .named("signature", SyntaxShape::String,
                     "Signature of the arguments to send, in D-Bus format.\n    \
                      If not provided, they will be determined from introspection.\n    \
@@ -105,8 +108,8 @@ impl Plugin for NuPluginDbus {
             PluginSignature::build("dbus get")
                 .is_dbus_command()
                 .accepts_dbus_client_options()
+                .accepts_timeout()
                 .usage("Get a D-Bus property")
-                .named("timeout", SyntaxShape::Duration, "How long to wait for a response", None)
                 .required_named("dest", SyntaxShape::String,
                     "The name of the connection to read the property from",
                     None)
@@ -135,8 +138,8 @@ impl Plugin for NuPluginDbus {
             PluginSignature::build("dbus get-all")
                 .is_dbus_command()
                 .accepts_dbus_client_options()
+                .accepts_timeout()
                 .usage("Get all D-Bus property for the given objects")
-                .named("timeout", SyntaxShape::Duration, "How long to wait for a response", None)
                 .required_named("dest", SyntaxShape::String,
                     "The name of the connection to read the property from",
                     None)
@@ -160,8 +163,8 @@ impl Plugin for NuPluginDbus {
             PluginSignature::build("dbus set")
                 .is_dbus_command()
                 .accepts_dbus_client_options()
+                .accepts_timeout()
                 .usage("Get all D-Bus property for the given objects")
-                .named("timeout", SyntaxShape::Duration, "How long to wait for a response", None)
                 .named("signature", SyntaxShape::String,
                     "Signature of the value to set, in D-Bus format.\n    \
                      If not provided, it will be determined from introspection.\n    \
@@ -187,6 +190,40 @@ impl Plugin for NuPluginDbus {
                         result: None,
                     },
                 ]),
+            PluginSignature::build("dbus list")
+                .is_dbus_command()
+                .accepts_dbus_client_options()
+                .accepts_timeout()
+                .usage("List all available connection names on the bus")
+                .extra_usage("These can be used as arguments for --dest on any of the other commands.")
+                .optional("pattern", SyntaxShape::String,
+                    "An optional glob-like pattern to filter the result by")
+                .plugin_examples(vec![
+                    PluginExample {
+                        example: "dbus list".into(),
+                        description: "List all names available on the bus".into(),
+                        result: None,
+                    },
+                    PluginExample {
+                        example: "dbus list org.freedesktop.*".into(),
+                        description: "List top-level freedesktop.org names on the bus \
+                            (e.g. matches `org.freedesktop.PowerManagement`, \
+                             but not `org.freedesktop.Management.Inhibit`)".into(),
+                        result: Some(Value::list(vec![
+                            str!("org.freedesktop.DBus"),
+                            str!("org.freedesktop.Flatpak"),
+                            str!("org.freedesktop.Notifications"),
+                        ], Span::unknown())),
+                    },
+                    PluginExample {
+                        example: "dbus list org.mpris.MediaPlayer2.**".into(),
+                        description: "List all MPRIS2 media players on the bus".into(),
+                        result: Some(Value::list(vec![
+                            str!("org.mpris.MediaPlayer2.spotify"),
+                            str!("org.mpris.MediaPlayer2.kdeconnect.mpris_000001"),
+                        ], Span::unknown())),
+                    },
+                ])
         ]
     }
 
@@ -208,6 +245,7 @@ impl Plugin for NuPluginDbus {
             "dbus get" => self.get(call),
             "dbus get-all" => self.get_all(call),
             "dbus set" => self.set(call),
+            "dbus list" => self.list(call),
 
             _ => Err(LabeledError {
                 label: "Plugin invoked with unknown command name".into(),
@@ -222,6 +260,7 @@ impl Plugin for NuPluginDbus {
 trait DbusSignatureUtilExt {
     fn is_dbus_command(self) -> Self;
     fn accepts_dbus_client_options(self) -> Self;
+    fn accepts_timeout(self) -> Self;
 }
 
 impl DbusSignatureUtilExt for PluginSignature {
@@ -239,6 +278,10 @@ impl DbusSignatureUtilExt for PluginSignature {
                 "Send to a non-bus D-Bus server at the given address. \
                  Will not call the Hello method on initialization.",
                 None)
+    }
+
+    fn accepts_timeout(self) -> Self {
+        self.named("timeout", SyntaxShape::Duration, "How long to wait for a response", None)
     }
 }
 
@@ -309,5 +352,15 @@ impl NuPluginDbus {
             &call.req(3)?,
         )?;
         Ok(Value::nothing(call.head))
+    }
+
+    fn list(&self, call: &EvaluatedCall) -> Result<Value, LabeledError> {
+        let config = DbusClientConfig::try_from(call)?;
+        let dbus = DbusClient::new(config)?;
+        let pattern = call.opt::<String>(0)?.map(|pat| Pattern::new(&pat, Some('.')));
+        let result = dbus.list(pattern.as_ref())?;
+        Ok(Value::list(
+            result.into_iter().map(|s| Value::string(s, call.head)).collect(),
+            call.head))
     }
 }
