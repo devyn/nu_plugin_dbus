@@ -16,9 +16,10 @@ the bus without having to implement boilerplate from documentation.
 
 ## Install with Cargo
 
-Run: `cargo install --locked nu_plugin_dbus`
+From within nushell:
 
-Then add `register ~/.cargo/bin/nu_plugin_dbus` to your `~/.config/nushell/config.nu`
+    cargo install --locked nu_plugin_dbus
+    register ~/.cargo/bin/nu_plugin_dbus
 
 ## Usage
 
