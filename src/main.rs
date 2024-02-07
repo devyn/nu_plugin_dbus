@@ -236,6 +236,7 @@ impl Plugin for NuPluginDbus {
     fn run(
         &mut self,
         name: &str,
+        _config: &Option<Value>,
         call: &EvaluatedCall,
         _input: &Value,
     ) -> Result<Value, LabeledError> {
