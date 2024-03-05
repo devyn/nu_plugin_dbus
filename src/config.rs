@@ -58,10 +58,10 @@ impl TryFrom<&EvaluatedCall> for DbusClientConfig {
                 },
                 r#type @ ("bus" | "peer") => {
                     if let Some(value) = value {
-                        let address = value.as_string()?;
+                        let address = value.as_str()?;
                         let dest = match r#type {
-                            "bus" => DbusBusChoice::Bus(address),
-                            "peer" => DbusBusChoice::Peer(address),
+                            "bus" => DbusBusChoice::Bus(address.to_owned()),
+                            "peer" => DbusBusChoice::Peer(address.to_owned()),
                             _ => unreachable!()
                         };
                         config.bus_choice = Spanned { item: dest, span: value.span() };
