@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::{Spanned, Span};
+use nu_protocol::{Span, Spanned};
 
 /// General configuration related to the D-Bus client connection
 #[derive(Debug, Clone)]
@@ -37,8 +37,14 @@ impl TryFrom<&EvaluatedCall> for DbusClientConfig {
     fn try_from(call: &EvaluatedCall) -> Result<Self, Self::Error> {
         let mut config = DbusClientConfig {
             span: call.head,
-            bus_choice: Spanned { item: DbusBusChoice::default(), span: call.head },
-            timeout: Spanned { item: Duration::from_secs(2), span: call.head },
+            bus_choice: Spanned {
+                item: DbusBusChoice::default(),
+                span: call.head,
+            },
+            timeout: Spanned {
+                item: Duration::from_secs(2),
+                span: call.head,
+            },
             introspect: true,
         };
 
@@ -51,41 +57,50 @@ impl TryFrom<&EvaluatedCall> for DbusClientConfig {
                             "session" => DbusBusChoice::Session,
                             "system" => DbusBusChoice::System,
                             "started" => DbusBusChoice::Started,
-                            _ => unreachable!()
+                            _ => unreachable!(),
                         };
-                        config.bus_choice = Spanned { item: dest, span: name.span };
+                        config.bus_choice = Spanned {
+                            item: dest,
+                            span: name.span,
+                        };
                     }
-                },
+                }
                 r#type @ ("bus" | "peer") => {
                     if let Some(value) = value {
                         let address = value.as_str()?;
                         let dest = match r#type {
                             "bus" => DbusBusChoice::Bus(address.to_owned()),
                             "peer" => DbusBusChoice::Peer(address.to_owned()),
-                            _ => unreachable!()
+                            _ => unreachable!(),
                         };
-                        config.bus_choice = Spanned { item: dest, span: value.span() };
+                        config.bus_choice = Spanned {
+                            item: dest,
+                            span: value.span(),
+                        };
                     }
-                },
+                }
                 "timeout" => {
                     if let Some(value) = value {
-                        let nanos: u64 = value.as_duration()?.try_into().map_err(|_| {
-                            LabeledError {
+                        let nanos: u64 =
+                            value.as_duration()?.try_into().map_err(|_| LabeledError {
                                 label: "Timeout must be a positive duration".into(),
                                 msg: "invalid timeout specified here".into(),
                                 span: Some(value.span()),
-                            }
-                        })?;
+                            })?;
                         let item = Duration::from_nanos(nanos);
-                        config.timeout = Spanned { item, span: value.span() };
+                        config.timeout = Spanned {
+                            item,
+                            span: value.span(),
+                        };
                     }
-                },
+                }
                 "no-introspect" => {
-                    config.introspect = !value.as_ref()
+                    config.introspect = !value
+                        .as_ref()
                         .and_then(|v| v.as_bool().ok())
                         .unwrap_or(false);
-                },
-                _ => ()
+                }
+                _ => (),
             }
         }
 

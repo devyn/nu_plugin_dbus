@@ -1,15 +1,15 @@
-use nu_plugin::{serve_plugin, MsgPackSerializer, Plugin, EvaluatedCall, LabeledError};
-use nu_protocol::{PluginSignature, Value, SyntaxShape, PluginExample, Span, Type};
+use nu_plugin::{serve_plugin, EvaluatedCall, LabeledError, MsgPackSerializer, Plugin};
+use nu_protocol::{PluginExample, PluginSignature, Span, SyntaxShape, Type, Value};
 
-mod config;
 mod client;
+mod config;
 mod convert;
 mod dbus_type;
 mod introspection;
 mod pattern;
 
-use config::*;
 use client::*;
+use config::*;
 
 use crate::pattern::Pattern;
 
@@ -23,14 +23,16 @@ struct NuPluginDbus;
 impl Plugin for NuPluginDbus {
     fn signature(&self) -> Vec<PluginSignature> {
         macro_rules! str {
-            ($s:expr) => (Value::string($s, Span::unknown()))
+            ($s:expr) => {
+                Value::string($s, Span::unknown())
+            };
         }
         vec![
             PluginSignature::build("dbus")
-                .is_dbus_command()
+                .dbus_command()
                 .usage("Commands for interacting with D-Bus"),
             PluginSignature::build("dbus introspect")
-                .is_dbus_command()
+                .dbus_command()
                 .accepts_dbus_client_options()
                 .accepts_timeout()
                 .usage("Introspect a D-Bus object")
@@ -65,7 +67,7 @@ impl Plugin for NuPluginDbus {
                     },
                 ]),
             PluginSignature::build("dbus call")
-                .is_dbus_command()
+                .dbus_command()
                 .accepts_dbus_client_options()
                 .accepts_timeout()
                 .usage("Call a method and get its response")
@@ -108,7 +110,7 @@ impl Plugin for NuPluginDbus {
                     },
                 ]),
             PluginSignature::build("dbus get")
-                .is_dbus_command()
+                .dbus_command()
                 .accepts_dbus_client_options()
                 .accepts_timeout()
                 .usage("Get a D-Bus property")
@@ -139,7 +141,7 @@ impl Plugin for NuPluginDbus {
                     },
                 ]),
             PluginSignature::build("dbus get-all")
-                .is_dbus_command()
+                .dbus_command()
                 .accepts_dbus_client_options()
                 .accepts_timeout()
                 .usage("Get all D-Bus properties for the given object")
@@ -165,7 +167,7 @@ impl Plugin for NuPluginDbus {
                     },
                 ]),
             PluginSignature::build("dbus set")
-                .is_dbus_command()
+                .dbus_command()
                 .accepts_dbus_client_options()
                 .accepts_timeout()
                 .usage("Set a D-Bus property")
@@ -196,7 +198,7 @@ impl Plugin for NuPluginDbus {
                     },
                 ]),
             PluginSignature::build("dbus list")
-                .is_dbus_command()
+                .dbus_command()
                 .accepts_dbus_client_options()
                 .accepts_timeout()
                 .usage("List all available connection names on the bus")
@@ -244,7 +246,7 @@ impl Plugin for NuPluginDbus {
             "dbus" => Err(LabeledError {
                 label: "The `dbus` command requires a subcommand".into(),
                 msg: "add --help to see subcommands".into(),
-                span: Some(call.head)
+                span: Some(call.head),
             }),
 
             "dbus introspect" => self.introspect(call),
@@ -257,21 +259,21 @@ impl Plugin for NuPluginDbus {
             _ => Err(LabeledError {
                 label: "Plugin invoked with unknown command name".into(),
                 msg: "unknown command".into(),
-                span: Some(call.head)
-            })
+                span: Some(call.head),
+            }),
         }
     }
 }
 
 /// For conveniently adding the base options to a dbus command
 trait DbusSignatureUtilExt {
-    fn is_dbus_command(self) -> Self;
+    fn dbus_command(self) -> Self;
     fn accepts_dbus_client_options(self) -> Self;
     fn accepts_timeout(self) -> Self;
 }
 
 impl DbusSignatureUtilExt for PluginSignature {
-    fn is_dbus_command(self) -> Self {
+    fn dbus_command(self) -> Self {
         self.search_terms(vec!["dbus".into()])
             .category(nu_protocol::Category::Platform)
     }
@@ -279,16 +281,33 @@ impl DbusSignatureUtilExt for PluginSignature {
     fn accepts_dbus_client_options(self) -> Self {
         self.switch("session", "Send to the session message bus (default)", None)
             .switch("system", "Send to the system message bus", None)
-            .switch("started", "Send to the bus that started this process, if applicable", None)
-            .named("bus", SyntaxShape::String, "Send to the bus server at the given address", None)
-            .named("peer", SyntaxShape::String,
+            .switch(
+                "started",
+                "Send to the bus that started this process, if applicable",
+                None,
+            )
+            .named(
+                "bus",
+                SyntaxShape::String,
+                "Send to the bus server at the given address",
+                None,
+            )
+            .named(
+                "peer",
+                SyntaxShape::String,
                 "Send to a non-bus D-Bus server at the given address. \
                  Will not call the Hello method on initialization.",
-                None)
+                None,
+            )
     }
 
     fn accepts_timeout(self) -> Self {
-        self.named("timeout", SyntaxShape::Duration, "How long to wait for a response", None)
+        self.named(
+            "timeout",
+            SyntaxShape::Duration,
+            "How long to wait for a response",
+            None,
+        )
     }
 }
 
@@ -296,10 +315,7 @@ impl NuPluginDbus {
     fn introspect(&self, call: &EvaluatedCall) -> Result<Value, LabeledError> {
         let config = DbusClientConfig::try_from(call)?;
         let dbus = DbusClient::new(config)?;
-        let node = dbus.introspect(
-            &call.get_flag("dest")?.unwrap(),
-            &call.req(0)?,
-        )?;
+        let node = dbus.introspect(&call.get_flag("dest")?.unwrap(), &call.req(0)?)?;
         Ok(node.to_value(call.head))
     }
 
@@ -312,7 +328,7 @@ impl NuPluginDbus {
             &call.req(1)?,
             &call.req(2)?,
             call.get_flag("signature")?.as_ref(),
-            &call.positional[3..]
+            &call.positional[3..],
         )?;
 
         let flatten = !call.get_flag::<bool>("no-flatten")?.unwrap_or(false);
@@ -322,7 +338,7 @@ impl NuPluginDbus {
         match values.len() {
             0 if flatten => Ok(Value::nothing(call.head)),
             1 if flatten => Ok(values.into_iter().nth(0).unwrap()),
-            _            => Ok(Value::list(values, call.head))
+            _ => Ok(Value::list(values, call.head)),
         }
     }
 
@@ -364,10 +380,16 @@ impl NuPluginDbus {
     fn list(&self, call: &EvaluatedCall) -> Result<Value, LabeledError> {
         let config = DbusClientConfig::try_from(call)?;
         let dbus = DbusClient::new(config)?;
-        let pattern = call.opt::<String>(0)?.map(|pat| Pattern::new(&pat, Some('.')));
+        let pattern = call
+            .opt::<String>(0)?
+            .map(|pat| Pattern::new(&pat, Some('.')));
         let result = dbus.list(pattern.as_ref())?;
         Ok(Value::list(
-            result.into_iter().map(|s| Value::string(s, call.head)).collect(),
-            call.head))
+            result
+                .into_iter()
+                .map(|s| Value::string(s, call.head))
+                .collect(),
+            call.head,
+        ))
     }
 }

@@ -1,10 +1,10 @@
-use nu_protocol::{Value, record, Span};
+use nu_protocol::{record, Span, Value};
 use serde::Deserialize;
 
 macro_rules! list_to_value {
-    ($list:expr, $span:expr) => (
+    ($list:expr, $span:expr) => {
         Value::list($list.iter().map(|i| i.to_value($span)).collect(), $span)
-    )
+    };
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq, Default)]
@@ -41,21 +41,33 @@ impl Node {
     /// Find a method on an interface on this node, and then generate the signature of the method
     /// args
     pub fn get_method_args_signature(&self, interface: &str, method: &str) -> Option<String> {
-        Some(self.get_interface(interface)?.get_method(method)?.in_signature())
+        Some(
+            self.get_interface(interface)?
+                .get_method(method)?
+                .in_signature(),
+        )
     }
 
     /// Find the signature of a property on an interface on this node
     pub fn get_property_signature(&self, interface: &str, property: &str) -> Option<&str> {
-        Some(&self.get_interface(interface)?.get_property(property)?.r#type)
+        Some(
+            &self
+                .get_interface(interface)?
+                .get_property(property)?
+                .r#type,
+        )
     }
 
     /// Represent the node as a nushell [Value]
     pub fn to_value(&self, span: Span) -> Value {
-        Value::record(record!{
-            "name" => self.name.as_ref().map(|s| Value::string(s, span)).unwrap_or_default(),
-            "interfaces" => list_to_value!(self.interfaces, span),
-            "children" => list_to_value!(self.children, span),
-        }, span)
+        Value::record(
+            record! {
+                "name" => self.name.as_ref().map(|s| Value::string(s, span)).unwrap_or_default(),
+                "interfaces" => list_to_value!(self.interfaces, span),
+                "children" => list_to_value!(self.children, span),
+            },
+            span,
+        )
     }
 }
 
@@ -89,13 +101,16 @@ impl Interface {
 
     /// Represent the interface as a nushell [Value]
     pub fn to_value(&self, span: Span) -> Value {
-        Value::record(record!{
-            "name" => Value::string(&self.name, span),
-            "methods" => list_to_value!(self.methods, span),
-            "signals" => list_to_value!(self.signals, span),
-            "properties" => list_to_value!(self.properties, span),
-            "signals" => list_to_value!(self.signals, span),
-        }, span)
+        Value::record(
+            record! {
+                "name" => Value::string(&self.name, span),
+                "methods" => list_to_value!(self.methods, span),
+                "signals" => list_to_value!(self.signals, span),
+                "properties" => list_to_value!(self.properties, span),
+                "signals" => list_to_value!(self.signals, span),
+            },
+            span,
+        )
     }
 }
 
@@ -112,7 +127,8 @@ pub struct Method {
 impl Method {
     /// Get the signature of the method args
     pub fn in_signature(&self) -> String {
-        self.args.iter()
+        self.args
+            .iter()
             .filter(|arg| arg.direction == Direction::In)
             .map(|arg| &arg.r#type[..])
             .collect()
@@ -121,7 +137,8 @@ impl Method {
     #[allow(dead_code)]
     /// Get the signature of the method result
     pub fn out_signature(&self) -> String {
-        self.args.iter()
+        self.args
+            .iter()
             .filter(|arg| arg.direction == Direction::Out)
             .map(|arg| &arg.r#type[..])
             .collect()
@@ -129,11 +146,14 @@ impl Method {
 
     /// Represent the method as a nushell [Value]
     pub fn to_value(&self, span: Span) -> Value {
-        Value::record(record!{
-            "name" => Value::string(&self.name, span),
-            "args" => list_to_value!(self.args, span),
-            "annotations" => list_to_value!(self.annotations, span),
-        }, span)
+        Value::record(
+            record! {
+                "name" => Value::string(&self.name, span),
+                "args" => list_to_value!(self.args, span),
+                "annotations" => list_to_value!(self.annotations, span),
+            },
+            span,
+        )
     }
 }
 
@@ -152,7 +172,7 @@ impl MethodArg {
     pub fn new(
         name: impl Into<String>,
         r#type: impl Into<String>,
-        direction: Direction
+        direction: Direction,
     ) -> MethodArg {
         MethodArg {
             name: Some(name.into()),
@@ -163,11 +183,14 @@ impl MethodArg {
 
     /// Represent the method as a nushell [Value]
     pub fn to_value(&self, span: Span) -> Value {
-        Value::record(record!{
-            "name" => self.name.as_ref().map(|n| Value::string(n, span)).unwrap_or_default(),
-            "type" => Value::string(&self.r#type, span),
-            "direction" => self.direction.to_value(span),
-        }, span)
+        Value::record(
+            record! {
+                "name" => self.name.as_ref().map(|n| Value::string(n, span)).unwrap_or_default(),
+                "type" => Value::string(&self.r#type, span),
+                "direction" => self.direction.to_value(span),
+            },
+            span,
+        )
     }
 }
 
@@ -181,7 +204,7 @@ pub enum Direction {
 
 impl Direction {
     /// Represent the direction as a nushell [Value]
-    pub fn to_value(&self, span: Span) -> Value {
+    pub fn to_value(self, span: Span) -> Value {
         match self {
             Direction::In => Value::string("in", span),
             Direction::Out => Value::string("out", span),
@@ -202,11 +225,14 @@ pub struct Signal {
 impl Signal {
     /// Represent the signal as a nushell [Value]
     pub fn to_value(&self, span: Span) -> Value {
-        Value::record(record!{
-            "name" => Value::string(&self.name, span),
-            "args" => list_to_value!(self.args, span),
-            "annotations" => list_to_value!(self.annotations, span),
-        }, span)
+        Value::record(
+            record! {
+                "name" => Value::string(&self.name, span),
+                "args" => list_to_value!(self.args, span),
+                "annotations" => list_to_value!(self.annotations, span),
+            },
+            span,
+        )
     }
 }
 
@@ -221,10 +247,13 @@ pub struct SignalArg {
 impl SignalArg {
     /// Represent the argument as a nushell [Value]
     pub fn to_value(&self, span: Span) -> Value {
-        Value::record(record!{
-            "name" => self.name.as_ref().map(|n| Value::string(n, span)).unwrap_or_default(),
-            "type" => Value::string(&self.r#type, span),
-        }, span)
+        Value::record(
+            record! {
+                "name" => self.name.as_ref().map(|n| Value::string(n, span)).unwrap_or_default(),
+                "type" => Value::string(&self.r#type, span),
+            },
+            span,
+        )
     }
 }
 
@@ -241,12 +270,15 @@ pub struct Property {
 impl Property {
     /// Represent the property as a nushell [Value]
     pub fn to_value(&self, span: Span) -> Value {
-        Value::record(record!{
-            "name" => Value::string(&self.name, span),
-            "type" => Value::string(&self.r#type, span),
-            "args" => self.access.to_value(span),
-            "annotations" => list_to_value!(self.annotations, span),
-        }, span)
+        Value::record(
+            record! {
+                "name" => Value::string(&self.name, span),
+                "type" => Value::string(&self.r#type, span),
+                "args" => self.access.to_value(span),
+                "annotations" => list_to_value!(self.annotations, span),
+            },
+            span,
+        )
     }
 }
 
@@ -279,15 +311,21 @@ pub struct Annotation {
 impl Annotation {
     #[cfg(test)]
     pub fn new(name: impl Into<String>, value: impl Into<String>) -> Annotation {
-        Annotation { name: name.into(), value: value.into() }
+        Annotation {
+            name: name.into(),
+            value: value.into(),
+        }
     }
 
     /// Represent the annotation as a nushell [Value]
     pub fn to_value(&self, span: Span) -> Value {
-        Value::record(record!{
-            "name" => Value::string(&self.name, span),
-            "value" => Value::string(&self.value, span),
-        }, span)
+        Value::record(
+            record! {
+                "name" => Value::string(&self.name, span),
+                "value" => Value::string(&self.value, span),
+            },
+            span,
+        )
     }
 }
 
@@ -305,9 +343,7 @@ pub fn test_introspection_doc_rs() -> Node {
                         MethodArg::new("bar", "as", Direction::In),
                         MethodArg::new("baz", "a{us}", Direction::Out),
                     ],
-                    annotations: vec![
-                        Annotation::new("org.freedesktop.DBus.Deprecated", "true"),
-                    ],
+                    annotations: vec![Annotation::new("org.freedesktop.DBus.Deprecated", "true")],
                 },
                 Method {
                     name: "Bazify".into(),
@@ -320,35 +356,30 @@ pub fn test_introspection_doc_rs() -> Node {
                 },
                 Method {
                     name: "Mogrify".into(),
-                    args: vec![
-                        MethodArg::new("bar", "(iiav)", Direction::In),
-                    ],
-                    annotations: vec![]
-                },
-            ],
-            signals: vec![
-                Signal {
-                    name: "Changed".into(),
-                    args: vec![
-                        SignalArg { name: Some("new_value".into()), r#type: "b".into() },
-                    ],
-                    annotations: vec![]
-                },
-            ],
-            properties: vec![
-                Property {
-                    name: "Bar".into(),
-                    r#type: "y".into(),
-                    access: Access::ReadWrite,
+                    args: vec![MethodArg::new("bar", "(iiav)", Direction::In)],
                     annotations: vec![],
-                }
+                },
             ],
-            annotations: vec![]
+            signals: vec![Signal {
+                name: "Changed".into(),
+                args: vec![SignalArg {
+                    name: Some("new_value".into()),
+                    r#type: "b".into(),
+                }],
+                annotations: vec![],
+            }],
+            properties: vec![Property {
+                name: "Bar".into(),
+                r#type: "y".into(),
+                access: Access::ReadWrite,
+                annotations: vec![],
+            }],
+            annotations: vec![],
         }],
         children: vec![
             Node::with_name("child_of_sample_object"),
             Node::with_name("another_child_of_sample_object"),
-        ]
+        ],
     }
 }
 
