@@ -1,4 +1,6 @@
-use nu_plugin::{serve_plugin, EvaluatedCall, LabeledError, MsgPackSerializer, Plugin};
+use nu_plugin::{
+    serve_plugin, EngineInterface, EvaluatedCall, LabeledError, MsgPackSerializer, Plugin,
+};
 use nu_protocol::{PluginExample, PluginSignature, Span, SyntaxShape, Type, Value};
 
 mod client;
@@ -14,7 +16,7 @@ use config::*;
 use crate::pattern::Pattern;
 
 fn main() {
-    serve_plugin(&mut NuPluginDbus, MsgPackSerializer)
+    serve_plugin(&NuPluginDbus, MsgPackSerializer)
 }
 
 /// The main plugin interface for nushell
@@ -236,9 +238,9 @@ impl Plugin for NuPluginDbus {
     }
 
     fn run(
-        &mut self,
+        &self,
         name: &str,
-        _config: &Option<Value>,
+        _engine: &EngineInterface,
         call: &EvaluatedCall,
         _input: &Value,
     ) -> Result<Value, LabeledError> {
