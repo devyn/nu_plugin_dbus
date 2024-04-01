@@ -1,7 +1,7 @@
 use std::time::Duration;
 
-use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::{Span, Spanned};
+use nu_plugin::EvaluatedCall;
+use nu_protocol::{LabeledError, Span, Spanned};
 
 /// General configuration related to the D-Bus client connection
 #[derive(Debug, Clone)]
@@ -81,12 +81,10 @@ impl TryFrom<&EvaluatedCall> for DbusClientConfig {
                 }
                 "timeout" => {
                     if let Some(value) = value {
-                        let nanos: u64 =
-                            value.as_duration()?.try_into().map_err(|_| LabeledError {
-                                label: "Timeout must be a positive duration".into(),
-                                msg: "invalid timeout specified here".into(),
-                                span: Some(value.span()),
-                            })?;
+                        let nanos: u64 = value.as_duration()?.try_into().map_err(|_| {
+                            LabeledError::new("Timeout must be a positive duration")
+                                .with_label("invalid timeout specified here", value.span())
+                        })?;
                         let item = Duration::from_nanos(nanos);
                         config.timeout = Spanned {
                             item,

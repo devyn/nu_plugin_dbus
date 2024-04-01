@@ -5,8 +5,7 @@ use dbus::{
     },
     Message, Signature,
 };
-use nu_plugin::LabeledError;
-use nu_protocol::{Record, Span, Value};
+use nu_protocol::{LabeledError, Record, Span, Value};
 use std::str::FromStr;
 
 use crate::dbus_type::DbusType;
@@ -101,13 +100,12 @@ pub fn to_message_item(
     // Report errors from conversion. Error must support Display
     macro_rules! try_convert {
         ($result_expr:expr) => {
-            $result_expr.map_err(|err| LabeledError {
-                label: format!(
+            $result_expr.map_err(|err| {
+                LabeledError::new(format!(
                     "Failed to convert value to the D-Bus `{:?}` type",
                     expected_type.unwrap()
-                ),
-                msg: err.to_string(),
-                span: Some(value.span()),
+                ))
+                .with_label(err.to_string(), value.span())
             })?
         };
     }
@@ -209,15 +207,15 @@ pub fn to_message_item(
         // Struct
         (Value::List { vals, .. }, Some(DbusType::Struct(types))) => {
             if vals.len() != types.len() {
-                return Err(LabeledError {
-                    label: format!(
-                        "expected struct with {} element(s) ({:?})",
-                        types.len(),
-                        types
-                    ),
-                    msg: format!("this list has {} element(s) instead", vals.len()),
-                    span: Some(value.span()),
-                });
+                return Err(LabeledError::new(format!(
+                    "expected struct with {} element(s) ({:?})",
+                    types.len(),
+                    types
+                ))
+                .with_label(
+                    format!("this list has {} element(s) instead", vals.len()),
+                    value.span(),
+                ));
             }
             let items = vals
                 .iter()
@@ -257,15 +255,15 @@ pub fn to_message_item(
         ))),
 
         // Value not compatible with expected type
-        (other_value, Some(expectation)) => Err(LabeledError {
-            label: format!(
-                "`{}` can not be converted to the D-Bus `{:?}` type",
-                other_value.get_type(),
-                expectation
-            ),
-            msg: format!("expected a `{:?}` here", expectation),
-            span: Some(other_value.span()),
-        }),
+        (other_value, Some(expectation)) => Err(LabeledError::new(format!(
+            "`{}` can not be converted to the D-Bus `{:?}` type",
+            other_value.get_type(),
+            expectation
+        ))
+        .with_label(
+            format!("expected a `{:?}` here", expectation),
+            other_value.span(),
+        )),
 
         // Automatic types (with no type expectation)
         (Value::String { .. }, None) => to_message_item(value, Some(&DbusType::String)),
@@ -283,13 +281,10 @@ pub fn to_message_item(
         ),
 
         // No expected type, but can't handle this type
-        _ => Err(LabeledError {
-            label: format!(
-                "can not use values of type `{}` in D-Bus calls",
-                value.get_type()
-            ),
-            msg: "use a supported type here instead".into(),
-            span: Some(value.span()),
-        }),
+        _ => Err(LabeledError::new(format!(
+            "can not use values of type `{}` in D-Bus calls",
+            value.get_type()
+        ))
+        .with_label("use a supported type here instead", value.span())),
     }
 }
