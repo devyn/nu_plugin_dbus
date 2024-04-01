@@ -3,8 +3,7 @@ use dbus::{
     channel::{BusType, Channel},
     Message,
 };
-use nu_plugin::LabeledError;
-use nu_protocol::{Spanned, Value};
+use nu_protocol::{LabeledError, Spanned, Value};
 
 use crate::{
     config::{DbusBusChoice, DbusClientConfig},
@@ -23,11 +22,8 @@ pub struct DbusClient {
 // Convenience macros for error handling
 macro_rules! validate_with {
     ($type:ty, $spanned:expr) => {
-        <$type>::new(&$spanned.item).map_err(|msg| LabeledError {
-            label: msg,
-            msg: "this argument is incorrect".into(),
-            span: Some($spanned.span),
-        })
+        <$type>::new(&$spanned.item)
+            .map_err(|msg| LabeledError::new("Invalid argument").with_label(msg, $spanned.span))
     };
 }
 
@@ -44,10 +40,11 @@ impl DbusClient {
                 Ok(ch)
             }),
         }
-        .map_err(|err| LabeledError {
-            label: err.to_string(),
-            msg: "while connecting to D-Bus as specified here".into(),
-            span: Some(config.bus_choice.span),
+        .map_err(|err| {
+            LabeledError::new(err.to_string()).with_label(
+                "while connecting to D-Bus as specified here",
+                config.bus_choice.span,
+            )
         })?;
         Ok(DbusClient {
             config,
@@ -56,11 +53,7 @@ impl DbusClient {
     }
 
     fn error(&self, err: impl std::fmt::Display, msg: impl std::fmt::Display) -> LabeledError {
-        LabeledError {
-            label: err.to_string(),
-            msg: msg.to_string(),
-            span: Some(self.config.span),
-        }
+        LabeledError::new(err.to_string()).with_label(msg.to_string(), self.config.span)
     }
 
     /// Introspect a D-Bus object
@@ -107,20 +100,22 @@ impl DbusClient {
         let node = self.introspect(dest, object)?;
 
         if let Some(sig) = node.get_method_args_signature(&interface.item, &method.item) {
-            DbusType::parse_all(&sig).map_err(|err| LabeledError {
-                label: format!(
+            DbusType::parse_all(&sig).map_err(|err| {
+                LabeledError::new(format!(
                     "while getting interface {:?} method {:?} signature: {}",
                     interface.item, method.item, err
-                ),
-                msg: "try running with --no-introspect or --signature".into(),
-                span: Some(self.config.span),
+                ))
+                .with_label(
+                    "try running with --no-introspect or --signature",
+                    self.config.span,
+                )
             })
         } else {
-            Err(LabeledError {
-                label: format!("Method {:?} not found on {:?}", method.item, interface.item),
-                msg: "check that this method/interface is correct".into(),
-                span: Some(method.span),
-            })
+            Err(LabeledError::new(format!(
+                "Method {:?} not found on {:?}",
+                method.item, interface.item
+            ))
+            .with_label("check that this method/interface is correct", method.span))
         }
     }
 
@@ -135,23 +130,25 @@ impl DbusClient {
         let node = self.introspect(dest, object)?;
 
         if let Some(sig) = node.get_property_signature(&interface.item, &property.item) {
-            DbusType::parse_all(sig).map_err(|err| LabeledError {
-                label: format!(
+            DbusType::parse_all(sig).map_err(|err| {
+                LabeledError::new(format!(
                     "while getting interface {:?} property {:?} signature: {}",
                     interface.item, property.item, err
-                ),
-                msg: "try running with --no-introspect or --signature".into(),
-                span: Some(self.config.span),
+                ))
+                .with_label(
+                    "try running with --no-introspect or --signature",
+                    self.config.span,
+                )
             })
         } else {
-            Err(LabeledError {
-                label: format!(
-                    "Property {:?} not found on {:?}",
-                    property.item, interface.item
-                ),
-                msg: "check that this property/interface is correct".into(),
-                span: Some(property.span),
-            })
+            Err(LabeledError::new(format!(
+                "Property {:?} not found on {:?}",
+                property.item, interface.item
+            ))
+            .with_label(
+                "check that this property or interface is correct",
+                property.span,
+            ))
         }
     }
 
@@ -176,10 +173,8 @@ impl DbusClient {
         // Parse the signature
         let mut valid_signature = signature
             .map(|s| {
-                DbusType::parse_all(&s.item).map_err(|err| LabeledError {
-                    label: err,
-                    msg: "in signature specified here".into(),
-                    span: Some(s.span),
+                DbusType::parse_all(&s.item).map_err(|err| {
+                    LabeledError::new(err).with_label("in signature specified here", s.span)
                 })
             })
             .transpose()?;
@@ -195,7 +190,7 @@ impl DbusClient {
                         "Warning: D-Bus introspection failed on {:?}. \
                         Use `--no-introspect` or pass `--signature` to silence this warning. \
                         Cause: {}",
-                        object.item, err.label
+                        object.item, err
                     );
                 }
             }
@@ -314,10 +309,8 @@ impl DbusClient {
         // Parse the signature
         let mut valid_signature = signature
             .map(|s| {
-                DbusType::parse_all(&s.item).map_err(|err| LabeledError {
-                    label: err,
-                    msg: "in signature specified here".into(),
-                    span: Some(s.span),
+                DbusType::parse_all(&s.item).map_err(|err| {
+                    LabeledError::new(err).with_label("in signature specified here", s.span)
                 })
             })
             .transpose()?;
@@ -333,7 +326,7 @@ impl DbusClient {
                         "Warning: D-Bus introspection failed on {:?}. \
                         Use `--no-introspect` or pass `--signature` to silence this warning. \
                         Cause: {}",
-                        object.item, err.label
+                        object.item, err
                     );
                 }
             }
