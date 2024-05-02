@@ -17,7 +17,7 @@ impl SimplePluginCommand for GetAll {
             .dbus_command()
             .accepts_dbus_client_options()
             .accepts_timeout()
-            .input_output_type(Type::Nothing, Type::Record(vec![]))
+            .input_output_type(Type::Nothing, Type::Record([].into()))
             .required_named(
                 "dest",
                 SyntaxShape::String,
