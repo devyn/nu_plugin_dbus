@@ -18,8 +18,11 @@ the bus without having to implement boilerplate from documentation.
 
 From within nushell:
 
-    cargo install --locked nu_plugin_dbus
-    register ~/.cargo/bin/nu_plugin_dbus
+```nushell
+cargo install --locked nu_plugin_dbus
+plugin add ~/.cargo/bin/nu_plugin_dbus
+plugin use dbus # or restart nu
+```
 
 ## Usage
 
