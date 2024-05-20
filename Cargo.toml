@@ -1,6 +1,6 @@
 [package]
 name = "nu_plugin_dbus"
-version = "0.6.0"
+version = "0.6.1"
 edition = "2021"
 
 description = "Nushell plugin for communicating with D-Bus"
