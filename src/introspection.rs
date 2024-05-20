@@ -107,7 +107,7 @@ impl Interface {
                 "methods" => list_to_value!(self.methods, span),
                 "signals" => list_to_value!(self.signals, span),
                 "properties" => list_to_value!(self.properties, span),
-                "signals" => list_to_value!(self.signals, span),
+                "annotations" => list_to_value!(self.annotations, span),
             },
             span,
         )
