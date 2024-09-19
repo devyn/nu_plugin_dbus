@@ -41,7 +41,7 @@ impl SimplePluginCommand for Get {
             )
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Get a D-Bus property"
     }
 

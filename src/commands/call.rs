@@ -65,11 +65,11 @@ impl SimplePluginCommand for Call {
             )
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Call a method and get its response"
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "Returns an array if the method call returns more than one value."
     }
 

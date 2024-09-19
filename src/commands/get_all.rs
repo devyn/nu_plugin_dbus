@@ -36,7 +36,7 @@ impl SimplePluginCommand for GetAll {
             )
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Get all D-Bus properties for the given object"
     }
 

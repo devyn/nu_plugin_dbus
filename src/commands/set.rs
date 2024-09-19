@@ -55,7 +55,7 @@ impl SimplePluginCommand for Set {
             )
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Set a D-Bus property"
     }
 
