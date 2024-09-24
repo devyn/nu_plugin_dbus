@@ -932,7 +932,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_dbus"
-version = "0.10.0"
+version = "0.11.0"
 dependencies = [
  "dbus",
  "nu-plugin",
