@@ -31,11 +31,11 @@ impl SimplePluginCommand for Introspect {
             )
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Introspect a D-Bus object"
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "Returns information about available nodes, interfaces, methods, \
             signals, and properties on the given object path"
     }

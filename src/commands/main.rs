@@ -16,7 +16,7 @@ impl SimplePluginCommand for Main {
         Signature::build(self.name()).dbus_command()
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Commands for interacting with D-Bus"
     }
 

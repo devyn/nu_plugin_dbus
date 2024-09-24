@@ -25,11 +25,11 @@ impl SimplePluginCommand for List {
             )
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "List all available connection names on the bus"
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "These can be used as arguments for --dest on any of the other commands."
     }
 
